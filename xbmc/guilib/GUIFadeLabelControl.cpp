@@ -19,6 +19,7 @@
  */
 
 #include "GUIFadeLabelControl.h"
+#include "Application.h"
 
 CGUIFadeLabelControl::CGUIFadeLabelControl(int parentID, int controlID, float posX, float posY, float width, float height, const CLabelInfo& labelInfo, bool scrollOut, unsigned int timeToDelayAtEnd, bool resetOnLabelChange, bool randomized)
     : CGUIControl(parentID, controlID, posX, posY, width, height), m_label(labelInfo), m_scrollInfo(50, labelInfo.offsetX, labelInfo.scrollSpeed)
@@ -108,7 +109,7 @@ void CGUIFadeLabelControl::Process(unsigned int currentTime, CDirtyRegionList &d
     dirty = true;
   }
 
-  if (m_infoLabels.size() > 1 || !m_shortText)
+  if ((m_infoLabels.size() > 1 || !m_shortText) && !g_application.ScreenSaverDisablesAutoScrolling())
   { // have scrolling text
     bool moveToNextLabel = false;
     if (!m_scrollOut)
