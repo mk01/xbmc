@@ -46,6 +46,7 @@ namespace PERIPHERALS
 #ifdef TARGET_ANDROID
     PERIPHERAL_BUS_ANDROID,
 #endif
+    PERIPHERAL_BUS_PLATFORM,
   };
 
   enum PeripheralFeature
@@ -61,6 +62,7 @@ namespace PERIPHERALS
     FEATURE_IMON,
     FEATURE_JOYSTICK,
     FEATURE_RUMBLE,
+    FEATURE_CABLESTATE,
   };
 
   enum PeripheralType
@@ -75,6 +77,7 @@ namespace PERIPHERALS
     PERIPHERAL_TUNER,
     PERIPHERAL_IMON,
     PERIPHERAL_JOYSTICK,
+    PERIPHERAL_VIDEO,
   };
 
   class CPeripheral;
@@ -132,6 +135,8 @@ namespace PERIPHERALS
         return "imon";
       case PERIPHERAL_JOYSTICK:
         return "joystick";
+      case PERIPHERAL_VIDEO:
+        return "video";
       default:
         return "unknown";
       }
@@ -160,6 +165,8 @@ namespace PERIPHERALS
         return PERIPHERAL_IMON;
       else if (strTypeLowerCase == "joystick")
         return PERIPHERAL_JOYSTICK;
+      else if (strTypeLowerCase == "video")
+        return PERIPHERAL_VIDEO;
 
       return PERIPHERAL_UNKNOWN;
     };
@@ -184,6 +191,8 @@ namespace PERIPHERALS
       case PERIPHERAL_BUS_ANDROID:
         return "android";
 #endif
+      case PERIPHERAL_BUS_PLATFORM:
+        return "platform";
       default:
         return "unknown";
       }
@@ -210,6 +219,8 @@ namespace PERIPHERALS
       else if (strTypeLowerCase == "android")
         return PERIPHERAL_BUS_ANDROID;
 #endif
+      else if (strTypeLowerCase == "platform")
+        return PERIPHERAL_BUS_PLATFORM;
 
       return PERIPHERAL_BUS_UNKNOWN;
     };
@@ -230,6 +241,14 @@ namespace PERIPHERALS
 
       strHexString = StringUtils::Format("%04X", iVal);
     };
+
+    static void UeventToName(CStdString &uevent, CStdString &name)
+    {
+      std::vector<std::string> data = StringUtils::Split(uevent, "\n");
+      for (size_t i = 0; i < data.size(); i++)
+        if (StringUtils::StartsWith(data[i], "OF_NAME="))
+          name = data[i].substr(8, data[i].length());
+    }
   };
 
   class PeripheralScanResult

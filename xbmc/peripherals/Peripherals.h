@@ -226,6 +226,8 @@ namespace PERIPHERALS
      */
     bool TestFeature(PeripheralFeature feature);
 
+    virtual CPeripheralBus *CreatePeripheralBus(CPeripheralBus *bus);
+
     bool SupportsCEC() const
     {
 #if defined(HAVE_LIBCEC)
