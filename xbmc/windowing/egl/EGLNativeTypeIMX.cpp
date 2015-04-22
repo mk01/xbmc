@@ -41,12 +41,15 @@
 #include <fstream>
 
 CEGLNativeTypeIMX::CEGLNativeTypeIMX()
-  : m_sar(0.0f)
-  , m_display(NULL)
+#ifdef HAS_IMXVPU
+  : m_display(NULL)
   , m_window(NULL)
+#endif
 {
+#ifdef HAS_IMXVPU
   m_show = true;
   m_readonly = true;
+#endif
 }
 
 CEGLNativeTypeIMX::~CEGLNativeTypeIMX()
@@ -55,12 +58,17 @@ CEGLNativeTypeIMX::~CEGLNativeTypeIMX()
 
 bool CEGLNativeTypeIMX::CheckCompatibility()
 {
+#ifdef HAS_IMXVPU
   std::ifstream file("/sys/class/graphics/fb0/fsl_disp_dev_property");
   return file.is_open();
+#else
+  return false;
+#endif
 }
 
 void CEGLNativeTypeIMX::Initialize()
 {
+#ifdef HAS_IMXVPU
   int fd;
 
   // Check if we can change the framebuffer resolution
@@ -103,7 +111,7 @@ void CEGLNativeTypeIMX::Initialize()
     CLog::Log(LOGERROR, "%s - Error while opening /dev/fb0.\n", __FUNCTION__);
     return;
   }
-#ifdef HAS_IMXVPU
+
   struct mxcfb_color_key colorKey;
   struct mxcfb_gbl_alpha gbl_alpha;
   struct mxcfb_loc_alpha lalpha;
@@ -124,14 +132,6 @@ void CEGLNativeTypeIMX::Initialize()
   colorKey.color_key = (16 << 16)|(8 << 8)|16;
   if (ioctl(fd, MXCFB_SET_CLR_KEY, &colorKey) < 0)
     CLog::Log(LOGERROR, "%s - Failed to setup color keying\n", __FUNCTION__);
-#endif
-  // Unblank the fb
-  if (ioctl(fd, FBIOBLANK, 0) < 0)
-  {
-    CLog::Log(LOGERROR, "%s - Error while unblanking fb0.\n", __FUNCTION__);
-  }
-
-  m_sar = GetMonitorSAR();
 
   // Check if we can change the framebuffer resolution
   if (!m_readonly)
@@ -139,11 +139,13 @@ void CEGLNativeTypeIMX::Initialize()
 
   ShowWindow(false);
   close(fd);
+#endif
   return;
 }
 
 void CEGLNativeTypeIMX::Destroy()
 {
+#ifdef HAS_IMXVPU
   CLog::Log(LOGDEBUG, "%s\n", __FUNCTION__);
   struct fb_fix_screeninfo fixed_info;
   void *fb_buffer;
@@ -173,6 +175,7 @@ void CEGLNativeTypeIMX::Destroy()
   SetNativeResolution(m_init);
   ShowWindow(true);
 
+#endif
   return;
 }
 
@@ -214,20 +217,28 @@ bool CEGLNativeTypeIMX::CreateNativeWindow()
 
 bool CEGLNativeTypeIMX::GetNativeDisplay(XBNativeDisplayType **nativeDisplay) const
 {
+#ifdef HAS_IMXVPU
   if (!m_nativeDisplay)
     return false;
 
   *nativeDisplay = (XBNativeDisplayType*)m_nativeDisplay;
   return true;
+#else
+  return false;
+#endif
 }
 
 bool CEGLNativeTypeIMX::GetNativeWindow(XBNativeWindowType **nativeWindow) const
 {
+#ifdef HAS_IMXVPU
   if (!m_nativeWindow)
     return false;
 
   *nativeWindow = (XBNativeWindowType*)m_nativeWindow;
   return true;
+#else
+  return false;
+#endif
 }
 
 bool CEGLNativeTypeIMX::DestroyNativeDisplay()
@@ -262,11 +273,15 @@ bool CEGLNativeTypeIMX::DestroyNativeWindow()
 
 bool CEGLNativeTypeIMX::GetNativeResolution(RESOLUTION_INFO *res) const
 {
+#ifdef HAS_IMXVPU
   std::string mode;
   SysfsUtils::GetString("/sys/class/graphics/fb0/mode", mode);
   CLog::Log(LOGDEBUG,": %s, %s", __FUNCTION__, mode.c_str());
 
   return ModeToResolution(mode, res);
+#else
+  return false;
+#endif
 }
 
 bool CEGLNativeTypeIMX::SetNativeResolution(const RESOLUTION_INFO &res)
@@ -294,8 +309,12 @@ bool CEGLNativeTypeIMX::SetNativeResolution(const RESOLUTION_INFO &res)
   CreateNativeWindow();
 
   return true;
+#else
+  return false;
+#endif
 }
 
+#ifdef HAS_IMXVPU
 bool CEGLNativeTypeIMX::FindMatchingResolution(const RESOLUTION_INFO &res, const std::vector<RESOLUTION_INFO> &resolutions)
 {
   for (int i = 0; i < (int)resolutions.size(); i++)
@@ -310,9 +329,13 @@ bool CEGLNativeTypeIMX::FindMatchingResolution(const RESOLUTION_INFO &res, const
   }
   return false;
 }
+#endif
 
 bool CEGLNativeTypeIMX::ProbeResolutions(std::vector<RESOLUTION_INFO> &resolutions)
 {
+#ifdef HAS_IMXVPU
+  CalcSAR();
+
   if (m_readonly)
     return false;
 
@@ -330,24 +353,32 @@ bool CEGLNativeTypeIMX::ProbeResolutions(std::vector<RESOLUTION_INFO> &resolutio
   RESOLUTION_INFO res;
   for (size_t i = 0; i < probe_str.size(); i++)
   {
-    if((!StringUtils::StartsWith(probe_str[i], "S:") && !StringUtils::StartsWith(probe_str[i], "U:"))
+    if(!StringUtils::StartsWith(probe_str[i], "S:") && !StringUtils::StartsWith(probe_str[i], "U:") &&
+       !StringUtils::StartsWith(probe_str[i], "V:") && !StringUtils::StartsWith(probe_str[i], "D:"))
       continue;
 
     if(ModeToResolution(probe_str[i], &res))
       if(!FindMatchingResolution(res, resolutions))
         resolutions.push_back(res);
   }
-
   return resolutions.size() > 0;
+#else
+  return false;
+#endif
 }
 
 bool CEGLNativeTypeIMX::GetPreferredResolution(RESOLUTION_INFO *res) const
 {
+#ifdef HAS_IMXVPU
   return GetNativeResolution(res);
+#else
+  return false;
+#endif
 }
 
 bool CEGLNativeTypeIMX::ShowWindow(bool show)
 {
+#ifdef HAS_IMXVPU
   if (m_show == show)
     return true;
 
@@ -362,9 +393,13 @@ bool CEGLNativeTypeIMX::ShowWindow(bool show)
 
   m_show = show;
   return true;
+#else
+  return false;
+#endif
 }
 
-float CEGLNativeTypeIMX::GetMonitorSAR()
+#ifdef HAS_IMXVPU
+void CEGLNativeTypeIMX::ReadEdidData()
 {
   FILE *f_edid;
   char *str = NULL;
@@ -379,7 +414,7 @@ float CEGLNativeTypeIMX::GetMonitorSAR()
     f_edid = fopen("/sys/devices/soc0/soc.1/20e0000.hdmi_video/edid", "r");
 
   if(!f_edid)
-    return 0;
+    return;
 
   // we need to convert mxc_hdmi output format to binary array
   // mxc_hdmi provides the EDID as space delimited 1bytes blocks
@@ -409,21 +444,6 @@ float CEGLNativeTypeIMX::GetMonitorSAR()
     str = NULL;
   }
   fclose(f_edid);
-
-  // info related to 'Basic display parameters.' is at offset 0x14-0x18.
-  // where W is 2nd byte, H 3rd.
-  int cmWidth  = (int)*(m_edid +EDID_STRUCT_DISPLAY +1);
-  int cmHeight = (int)*(m_edid +EDID_STRUCT_DISPLAY +2);
-  if (cmHeight > 0)
-  {
-    float t_sar = (float) cmWidth / cmHeight;
-    if (t_sar >= 0.33 && t_sar <= 3.0)
-      return t_sar;
-  }
-
-  // if we end up here, H/W values or final SAR are useless
-  // return 0 and use 1.0f as PR for all resolutions
-  return 0;
 }
 
 bool CEGLNativeTypeIMX::ModeToResolution(std::string mode, RESOLUTION_INFO *res) const
@@ -464,11 +484,12 @@ bool CEGLNativeTypeIMX::ModeToResolution(std::string mode, RESOLUTION_INFO *res)
   res->bFullScreen   = true;
   res->iSubtitles    = (int)(0.965 * res->iHeight);
 
-  res->fPixelRatio  *= !m_sar ? 1.0f : (float)m_sar / res->iScreenWidth * res->iScreenHeight;
-  res->strMode       = StringUtils::Format("%4sx%4s @ %.2f%s - Full Screen (%.3f)", StringUtils::Format("%d", res->iScreenWidth).c_str(),
+  res->fPixelRatio  *= (float)GetSAR() / res->iScreenWidth * res->iScreenHeight;
+  res->strMode       = StringUtils::Format("%4sx%4s @ %.3f%s - Full Screen (%.3f)", StringUtils::Format("%d", res->iScreenWidth).c_str(),
                                            StringUtils::Format("%d", res->iScreenHeight).c_str(), res->fRefreshRate,
                                            res->dwFlags & D3DPRESENTFLAG_INTERLACED ? "i" : " ", res->fPixelRatio);
   res->strId         = mode;
 
   return res->iWidth > 0 && res->iHeight> 0;
 }
+#endif

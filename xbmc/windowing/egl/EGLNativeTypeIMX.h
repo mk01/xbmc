@@ -24,9 +24,9 @@
 #include <EGL/egl.h>
 #include "EGLNativeType.h"
 
-#define EDID_STRUCT_DISPLAY     0x14
+#include "EGLEdid.h"
 
-class CEGLNativeTypeIMX : public CEGLNativeType
+class CEGLNativeTypeIMX : public CEGLNativeType, private CEGLEdid
 {
 public:
   CEGLNativeTypeIMX();
@@ -51,17 +51,17 @@ public:
   virtual bool  GetPreferredResolution(RESOLUTION_INFO *res) const;
 
   virtual bool  ShowWindow(bool show = true);
+  virtual void  ReadEdidData();
 
+#ifdef HAS_IMXVPU
 protected:
   bool m_readonly;
   bool m_show;
-  float m_sar;
+  RESOLUTION_INFO m_init;
   bool ModeToResolution(std::string mode, RESOLUTION_INFO *res) const;
   bool FindMatchingResolution(const RESOLUTION_INFO &res, const std::vector<RESOLUTION_INFO> &resolutions);
-  float GetMonitorSAR();
-  RESOLUTION_INFO m_init;
 
   EGLNativeDisplayType m_display;
   EGLNativeWindowType  m_window;
-  uint8_t              m_edid[512];
+#endif
 };
