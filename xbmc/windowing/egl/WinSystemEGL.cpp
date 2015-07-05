@@ -30,6 +30,7 @@
 #include "settings/AdvancedSettings.h"
 #include "settings/Settings.h"
 #include "settings/DisplaySettings.h"
+#include "cores/VideoRenderers/RenderManager.h"
 #include "guilib/DispResource.h"
 #include "threads/SingleLock.h"
 #ifdef HAS_IMXVPU
@@ -355,7 +356,7 @@ void CWinSystemEGL::UpdateResolutions()
 {
   CWinSystemBase::UpdateResolutions();
 
-  RESOLUTION_INFO resDesktop, curDisplay;
+  RESOLUTION_INFO curDisplay, resDesktop = CDisplaySettings::Get().GetResolutionInfo(CDisplaySettings::Get().GetCurrentResolution());
   std::vector<RESOLUTION_INFO> resolutions;
 
   if (!m_egl->ProbeResolutions(resolutions) || resolutions.empty())
@@ -389,14 +390,7 @@ void CWinSystemEGL::UpdateResolutions()
     g_graphicsContext.ResetOverscan(resolutions[i]);
     CDisplaySettings::GetInstance().GetResolutionInfo(res_index) = resolutions[i];
 
-    CLog::Log(LOGNOTICE, "Found resolution %d x %d for display %d with %d x %d%s @ %f Hz\n",
-      resolutions[i].iWidth,
-      resolutions[i].iHeight,
-      resolutions[i].iScreen,
-      resolutions[i].iScreenWidth,
-      resolutions[i].iScreenHeight,
-      resolutions[i].dwFlags & D3DPRESENTFLAG_INTERLACED ? "i" : "",
-      resolutions[i].fRefreshRate);
+    CLog::Log(LOGNOTICE, "Found resolution %s\n", resolutions[i].strMode.c_str());
 
     res_index = (RESOLUTION)((int)res_index + 1);
   }
@@ -404,13 +398,13 @@ void CWinSystemEGL::UpdateResolutions()
   /* ProbeResolutions includes already all resolutions.
    * Only get desktop resolution so we can replace xbmc's desktop res
    */
-  if (!g_application.m_res.strMode.empty())
-    resDesktop = g_application.m_res;
-  else if (CDisplaySettings::GetInstance().GetDisplayResolution() != RES_DESKTOP)
+  if (resDesktop.strMode.empty() || CDisplaySettings::GetInstance().GetCurrentResolution() != CDisplaySettings::GetInstance().GetDisplayResolution())
     resDesktop = CDisplaySettings::GetInstance().GetResolutionInfo(CDisplaySettings::GetInstance().GetDisplayResolution());
-  else if (m_egl->GetNativeResolution(&curDisplay))
-    resDesktop = curDisplay;
+  if (CDisplaySettings::GetInstance().GetCurrentResolution() == RES_DESKTOP)
+    if (m_egl->GetNativeResolution(&curDisplay))
+      resDesktop = curDisplay;
 
+  CLog::Log(LOGDEBUG, "Looking for resolution %s", resDesktop.strMode.c_str());
   RESOLUTION ResDesktop = RES_INVALID;
 
   for (size_t i = 0; i < resolutions.size(); i++)
@@ -419,24 +413,20 @@ void CWinSystemEGL::UpdateResolutions()
        resDesktop.iScreenWidth == resolutions[i].iScreenWidth &&
        resDesktop.iScreenHeight == resolutions[i].iScreenHeight &&
        (resDesktop.dwFlags & D3DPRESENTFLAG_MODEMASK) == (resolutions[i].dwFlags & D3DPRESENTFLAG_MODEMASK) &&
-       fabs(resDesktop.fRefreshRate - resolutions[i].fRefreshRate) < FLT_EPSILON)
+       fabs(resDesktop.fRefreshRate - resolutions[i].fRefreshRate) < FLT_EPSILON &&
+       fabs(resDesktop.fPixelRatio - resolutions[i].fPixelRatio) < FLT_EPSILON)
     {
       ResDesktop = (RESOLUTION)(i + (int)RES_DESKTOP);
     }
 
-  // swap desktop index for desktop res if available
-  if (ResDesktop != RES_INVALID)
+  if (ResDesktop == RES_INVALID)
   {
-    CLog::Log(LOGNOTICE, "Found (%dx%d%s@%f) at %d, setting to RES_DESKTOP at %d",
-      resDesktop.iWidth, resDesktop.iHeight,
-      resDesktop.dwFlags & D3DPRESENTFLAG_INTERLACED ? "i" : "",
-      resDesktop.fRefreshRate,
-      (int)ResDesktop, (int)RES_DESKTOP);
-
-    RESOLUTION_INFO desktop = CDisplaySettings::GetInstance().GetResolutionInfo(RES_DESKTOP);
-    CDisplaySettings::GetInstance().GetResolutionInfo(RES_DESKTOP) = CDisplaySettings::GetInstance().GetResolutionInfo(ResDesktop);
-    CDisplaySettings::GetInstance().GetResolutionInfo(ResDesktop) = desktop;
+    ResDesktop = CDisplaySettings::GetInstance().GetDisplayResolution();
+    CLog::Log(LOGNOTICE, "New screen doesn't provide previous resolution. Will change to %d (%s)", ResDesktop,
+                                   CDisplaySettings::GetInstance().GetResolutionInfo(ResDesktop).strMode.c_str());
   }
+
+  CDisplaySettings::GetInstance().SetCurrentResolution(ResDesktop);
 }
 
 bool CWinSystemEGL::IsExtSupported(const char* extension)

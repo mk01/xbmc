@@ -39,16 +39,22 @@
 #include "windowing/WindowingFactory.h"
 #include "cores/AudioEngine/AEFactory.h"
 #include <fstream>
+#include "peripherals/Peripherals.h"
+#include "peripherals/bus/linux/PeripheralBusPLATFORMLibUdev.h"
+
+using namespace PERIPHERALS;
 
 CEGLNativeTypeIMX::CEGLNativeTypeIMX()
 #ifdef HAS_IMXVPU
   : m_display(NULL)
   , m_window(NULL)
-#endif
 {
-#ifdef HAS_IMXVPU
   m_show = true;
   m_readonly = true;
+
+  g_peripherals.CreatePeripheralBus(new CPeripheralBusPLATFORM(&g_peripherals));
+#else
+{
 #endif
 }
 

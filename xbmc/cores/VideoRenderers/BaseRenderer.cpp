@@ -34,6 +34,7 @@
 #include "settings/AdvancedSettings.h"
 #include "cores/VideoRenderers/RenderFlags.h"
 
+#include "Application.h"
 
 CBaseRenderer::CBaseRenderer()
 {
@@ -221,11 +222,9 @@ void CBaseRenderer::FindResolutionFromFpsMatch(float fps, float& weight)
 
 RESOLUTION CBaseRenderer::FindClosestResolution(float fps, float multiplier, RESOLUTION current, float& weight)
 {
-  RESOLUTION_INFO curr = g_graphicsContext.GetResInfo(current);
+  RESOLUTION_INFO curr = CDisplaySettings::Get().GetCurrentResolution();
 
   float fRefreshRate = fps;
-
-  float last_diff = fRefreshRate;
 
   // Find closest refresh rate
   for (size_t i = (int)RES_DESKTOP; i < CDisplaySettings::GetInstance().ResolutionInfoSize(); i++)

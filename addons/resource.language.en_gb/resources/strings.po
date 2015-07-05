@@ -5935,7 +5935,12 @@ msgctxt "#13287"
 msgid "Screen resolution:"
 msgstr ""
 
-#empty strings from id 13288 to 13291
+#: peripheral/devices/PeripheralVideo.cpp
+msgctxt "#13288"
+msgid "Probing available resolutions"
+msgstr "Probing available resolutions"
+
+#empty strings from id 13289 to 13291
 
 msgctxt "#13292"
 msgid "A/V cable:"
@@ -6707,7 +6712,7 @@ msgctxt "#13557"
 msgid "Skip delay"
 msgstr ""
 
-#empty strings from id 13558 to 13599
+#empty strings from id 13557 to 13599
 
 #: system/settings/darwin.xml
 msgctxt "#13600"
@@ -15877,8 +15882,6 @@ msgctxt "#36171"
 msgid "Select the zoom level that 4:3 videos are shown on widescreen displays."
 msgstr ""
 
-#empty string with id 36172
-
 #. Description of setting "Appearance -> International -> Short date format" with label #14109
 #: system/settings/settings.xml
 msgctxt "#36173"
@@ -18089,4 +18092,22 @@ msgstr ""
 #: system/settings/settings.xml
 msgctxt "#38020"
 msgid "Enables decoding of high quality DTS-HD audio streams. Note: This increases CPU load and is only available when DTS and DTS-HD audio passthrough are disabled."
+msgstr ""
+
+#. Label of setting "System -> Video output -> Refresh resolutions"
+#: system/settings/settings.xml
+msgctxt "#40000"
+msgid "Update available resolutions on Display device changes"
+msgstr ""
+
+#. Description of setting "System -> Video output -> Refresh resolutions"
+#: system/settings/settings.xml
+msgctxt "#40001"
+msgid "Available resolutions will be updated on HDMI hotplug events. Currently active resolution will be matched agains new mode list. If new mode list doesn't provide same mode, closest mode will be used and changed to"
+msgstr ""
+
+#. Label of "System -> Input devices -> HDMI Video -> Enable hotplug events be passed to Kodi"
+#: system/peripherals.xml
+msgctxt "#40002"
+msgid "Detect hotplug events"
 msgstr ""

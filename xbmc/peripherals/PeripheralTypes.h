@@ -39,7 +39,8 @@ namespace PERIPHERALS
     PERIPHERAL_BUS_PCI,
     PERIPHERAL_BUS_RPI,
     PERIPHERAL_BUS_IMX,
-    PERIPHERAL_BUS_CEC
+    PERIPHERAL_BUS_CEC,
+    PERIPHERAL_BUS_PLATFORM
   };
 
   enum PeripheralFeature
@@ -52,7 +53,8 @@ namespace PERIPHERALS
     FEATURE_CEC,
     FEATURE_BLUETOOTH,
     FEATURE_TUNER,
-    FEATURE_IMON
+    FEATURE_IMON,
+    FEATURE_CABLESTATE
   };
 
   enum PeripheralType
@@ -65,7 +67,8 @@ namespace PERIPHERALS
     PERIPHERAL_CEC,
     PERIPHERAL_BLUETOOTH,
     PERIPHERAL_TUNER,
-    PERIPHERAL_IMON 
+    PERIPHERAL_IMON,
+    PERIPHERAL_VIDEO
   };
 
   struct PeripheralID
@@ -113,6 +116,8 @@ namespace PERIPHERALS
         return "tuner";
       case PERIPHERAL_IMON:
         return "imon";
+      case PERIPHERAL_VIDEO:
+        return "video";
       default:
         return "unknown";
       }
@@ -139,6 +144,8 @@ namespace PERIPHERALS
         return PERIPHERAL_TUNER;
       else if (strTypeLowerCase == "imon")
         return PERIPHERAL_IMON;
+      else if (strTypeLowerCase == "video")
+        return PERIPHERAL_VIDEO;
 
       return PERIPHERAL_UNKNOWN;
     };
@@ -157,6 +164,8 @@ namespace PERIPHERALS
         return "imx";
       case PERIPHERAL_BUS_CEC:
         return "cec";
+      case PERIPHERAL_BUS_PLATFORM:
+        return "platform";
       default:
         return "unknown";
       }
@@ -177,6 +186,8 @@ namespace PERIPHERALS
         return PERIPHERAL_BUS_IMX;
       else if (strTypeLowerCase == "cec")
         return PERIPHERAL_BUS_CEC;
+      else if (strTypeLowerCase == "platform")
+        return PERIPHERAL_BUS_PLATFORM;
 
       return PERIPHERAL_BUS_UNKNOWN;
     };
@@ -196,6 +207,14 @@ namespace PERIPHERALS
         iVal = 65536;
 
       strHexString = StringUtils::Format("%04X", iVal);
+    };
+
+    static void UeventToName(std::string &uevent, std::string &name)
+    {
+      std::vector<std::string> data = StringUtils::Split(uevent, "\n");
+      for (size_t i = 0; i < data.size(); i++)
+        if (StringUtils::StartsWith(data[i], "OF_NAME="))
+          name = data[i].substr(8, data[i].length());
     };
   };
 

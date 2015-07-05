@@ -286,7 +286,6 @@ CApplication::CApplication(void)
   m_skinReverting = false;
   m_loggingIn = false;
   m_cecStandby = false;
-  m_res.strMode = "";
 
 #ifdef HAS_GLX
   XInitThreads();
@@ -771,6 +770,7 @@ bool CApplication::CreateGUI()
   // Initialize core peripheral port support. Note: If these parameters
   // are 0 and NULL, respectively, then the default number and types of
   // controllers will be initialized.
+  CDisplaySettings::GetInstance().SetCurrentResolution((RESOLUTION)CSettings::GetInstance().GetInt("videoscreen.resolution"));
   if (!g_Windowing.InitWindowSystem())
   {
     CLog::Log(LOGFATAL, "CApplication::Create: Unable to init windowing system");
@@ -828,8 +828,6 @@ bool CApplication::CreateGUI()
             info.iHeight,
             info.strMode.c_str());
 
-  m_res = info;
-  CLog::Log(LOGDEBUG, "%s: -- base resolution changed to '%s'", __func__, m_res.strMode.c_str());
   g_windowManager.Initialize();
 
   return true;
@@ -1475,11 +1473,6 @@ void CApplication::OnSettingChanged(const CSetting *setting)
     m_replayGainSettings.iNoGainPreAmp = ((CSettingInt*)setting)->GetValue();
   else if (StringUtils::EqualsNoCase(settingId, CSettings::SETTING_MUSICPLAYER_REPLAYGAINAVOIDCLIPPING))
     m_replayGainSettings.bAvoidClipping = ((CSettingBool*)setting)->GetValue();
-
-  if (StringUtils::EqualsNoCase(settingId, "videoscreen.screenmode") || StringUtils::EqualsNoCase(settingId, "videoscreen.resolution")) {
-    m_res = CDisplaySettings::GetInstance().GetResolutionInfo(CDisplaySettings::GetInstance().GetDisplayResolution());
-    CLog::Log(LOGDEBUG, "%s: -- base resolution changed to '%s'", __func__, m_res.strMode.c_str());
-  }
 }
 
 void CApplication::OnSettingAction(const CSetting *setting)
@@ -2615,6 +2608,11 @@ void CApplication::OnApplicationMessage(ThreadMessage* pMsg)
   case TMSG_DISPLAY_DESTROY:
     *static_cast<bool*>(pMsg->lpVoid) = DestroyWindow();
     SetRenderGUI(false);
+    break;
+
+  case TMSG_DISPLAY_RECONFIGURE:
+    g_Windowing.UpdateResolutions();
+    g_graphicsContext.SetFullScreenVideo(g_graphicsContext.IsFullScreenVideo());
     break;
 
   case TMSG_SETPVRMANAGERSTATE:
