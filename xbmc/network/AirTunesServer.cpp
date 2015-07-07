@@ -548,7 +548,7 @@ bool CAirTunesServer::StartServer(int port, bool nonlocal, bool usePassword, con
 {
   bool success = false;
   std::string pw = password;
-  CNetworkInterface *net = g_application.getNetwork().GetFirstConnectedInterface();
+  CNetworkInterface *net = g_application.getNetwork().GetFirstConnectedInterface(true);
   StopServer(true);
 
   if (net)

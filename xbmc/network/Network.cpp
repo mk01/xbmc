@@ -206,14 +206,15 @@ bool CNetwork::IsLocalHost(const std::string& hostname)
   return false;
 }
 
-CNetworkInterface* CNetwork::GetFirstConnectedInterface()
+CNetworkInterface* CNetwork::GetFirstConnectedInterface(bool withvalidmac)
 {
    std::vector<CNetworkInterface*>& ifaces = GetInterfaceList();
    std::vector<CNetworkInterface*>::const_iterator iter = ifaces.begin();
    while (iter != ifaces.end())
    {
       CNetworkInterface* iface = *iter;
-      if (iface && iface->IsConnected())
+      if (iface && iface->IsConnected() &&
+        !(withvalidmac && iface->GetMacAddress() == "00:00:00:00:00:00"))
          return iface;
       ++iter;
    }

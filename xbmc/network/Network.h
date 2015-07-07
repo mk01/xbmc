@@ -117,7 +117,7 @@ public:
    CNetworkInterface* GetInterfaceByName(const std::string& name);
 
    // Return the first interface which is active
-   virtual CNetworkInterface* GetFirstConnectedInterface(void);
+   virtual CNetworkInterface* GetFirstConnectedInterface(bool withvalidmac = false);
 
    // Return true if there is a interface for the same network as address
    bool HasInterfaceForIP(unsigned long address);
