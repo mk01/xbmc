@@ -45,6 +45,8 @@ CEGLNativeTypeIMX::CEGLNativeTypeIMX()
   , m_display(NULL)
   , m_window(NULL)
 {
+  m_show = true;
+  m_readonly = true;
 }
 
 CEGLNativeTypeIMX::~CEGLNativeTypeIMX()
@@ -122,16 +124,10 @@ void CEGLNativeTypeIMX::Initialize()
   colorKey.color_key = (16 << 16)|(8 << 8)|16;
   if (ioctl(fd, MXCFB_SET_CLR_KEY, &colorKey) < 0)
     CLog::Log(LOGERROR, "%s - Failed to setup color keying\n", __FUNCTION__);
-#endif
-  // Unblank the fb
-  if (ioctl(fd, FBIOBLANK, 0) < 0)
-  {
-    CLog::Log(LOGERROR, "%s - Error while unblanking fb0.\n", __FUNCTION__);
-  }
 
+  ShowWindow(false);
   close(fd);
-
-  m_sar = GetMonitorSAR();
+#endif
   return;
 }
 
@@ -251,19 +247,20 @@ bool CEGLNativeTypeIMX::SetNativeResolution(const RESOLUTION_INFO &res)
   std::string mode;
   SysfsUtils::GetString("/sys/class/graphics/fb0/mode", mode);
   if (res.strId == mode)
-    return false;
+  {
+    CLog::Log(LOGDEBUG,": %s - not changing res (%s vs %s)", __FUNCTION__, res.strId.c_str(), mode.c_str());
+    return true;
+  }
 
   DestroyNativeWindow();
   DestroyNativeDisplay();
 
+  ShowWindow(false);
+  CLog::Log(LOGDEBUG,": %s - changing resolution to %s", __FUNCTION__, res.strId.c_str());
   SysfsUtils::SetString("/sys/class/graphics/fb0/mode", res.strId + "\n");
 
   CreateNativeDisplay();
-
-  CLog::Log(LOGDEBUG, "%s: %s",__FUNCTION__, res.strId.c_str());
-
-  // Reset AE
-  CAEFactory::DeviceChange();
+  CreateNativeWindow();
 
   return true;
 }
@@ -285,6 +282,8 @@ bool CEGLNativeTypeIMX::FindMatchingResolution(const RESOLUTION_INFO &res, const
 
 bool CEGLNativeTypeIMX::ProbeResolutions(std::vector<RESOLUTION_INFO> &resolutions)
 {
+  GetMonitorSAR();
+
   if (m_readonly)
     return false;
 
@@ -302,8 +301,9 @@ bool CEGLNativeTypeIMX::ProbeResolutions(std::vector<RESOLUTION_INFO> &resolutio
   RESOLUTION_INFO res;
   for (size_t i = 0; i < probe_str.size(); i++)
   {
-    if(!StringUtils::StartsWith(probe_str[i], "S:") && !StringUtils::StartsWith(probe_str[i], "U:") &&
-       !StringUtils::StartsWith(probe_str[i], "V:"))
+    if(!StringUtils::StartsWithNoCase(probe_str[i], "S:") && !StringUtils::StartsWithNoCase(probe_str[i], "U:") &&
+       !StringUtils::StartsWithNoCase(probe_str[i], "V:") && !StringUtils::StartsWithNoCase(probe_str[i], "D:") &&
+       !StringUtils::StartsWithNoCase(probe_str[i], "H:") && !StringUtils::StartsWithNoCase(probe_str[i], "T:"))
       continue;
 
     if(ModeToResolution(probe_str[i], &res))
@@ -320,16 +320,34 @@ bool CEGLNativeTypeIMX::GetPreferredResolution(RESOLUTION_INFO *res) const
 
 bool CEGLNativeTypeIMX::ShowWindow(bool show)
 {
-  // Force vsync by default
-  eglSwapInterval(g_Windowing.GetEGLDisplay(), 1);
-  EGLint result = eglGetError();
-  if(result != EGL_SUCCESS)
-    CLog::Log(LOGERROR, "EGL error in %s: %x",__FUNCTION__, result);
+  if (m_show == show)
+    return true;
 
-  return false;
+  CLog::Log(LOGDEBUG, ": %s %s", __FUNCTION__, show?"show":"hide");
+  SysfsUtils::SetString("/sys/class/graphics/fb0/blank", show?"0\n":"1\n");
+
+  m_show = show;
+  return true;
 }
 
-float CEGLNativeTypeIMX::GetMonitorSAR()
+float CEGLNativeTypeIMX::ValidateSAR(struct dt_dim *dtm, bool mb)
+{
+  int Height = mb ? dtm->Height << 4 | (dtm->lobit & 0xf0) : dtm->Height;
+  if (Height < 1)
+    return .0f;
+
+  int Width = mb ? dtm->Width << 4 | (dtm->lobit & 0x0f) : dtm->Width;
+  float t_sar = (float) Width / Height;
+
+  if (t_sar < 0.33 || t_sar > 3.00)
+    t_sar = .0f;
+  else
+    CLog::Log(LOGDEBUG, "%s: Screen SAR: %.3f",__FUNCTION__, t_sar);
+
+  return t_sar;
+}
+
+void CEGLNativeTypeIMX::GetMonitorSAR()
 {
   FILE *f_edid;
   char *str = NULL;
@@ -339,12 +357,13 @@ float CEGLNativeTypeIMX::GetMonitorSAR()
 
   // kernels <= 3.18 use ./soc0/soc.1 in official imx kernel
   // kernels  > 3.18 use ./soc0/soc
+  m_sar = 0;
   f_edid = fopen("/sys/devices/soc0/soc/20e0000.hdmi_video/edid", "r");
   if(!f_edid)
     f_edid = fopen("/sys/devices/soc0/soc.1/20e0000.hdmi_video/edid", "r");
 
   if(!f_edid)
-    return 0;
+    return;
 
   // we need to convert mxc_hdmi output format to binary array
   // mxc_hdmi provides the EDID as space delimited 1bytes blocks
@@ -375,20 +394,35 @@ float CEGLNativeTypeIMX::GetMonitorSAR()
   }
   fclose(f_edid);
 
-  // info related to 'Basic display parameters.' is at offset 0x14-0x18.
-  // where W is 2nd byte, H 3rd.
-  int cmWidth  = (int)*(m_edid +EDID_STRUCT_DISPLAY +1);
-  int cmHeight = (int)*(m_edid +EDID_STRUCT_DISPLAY +2);
-  if (cmHeight > 0)
-  {
-    float t_sar = (float) cmWidth / cmHeight;
-    if (t_sar >= 0.33 && t_sar <= 3.0)
-      return t_sar;
-  }
+  // enumerate through (max four) detailed timing info blocks
+  // specs and lookup WxH [mm / in]. W and H are in 3 bytes,
+  // where 1st = W, 2nd = H, 3rd byte is 4bit/4bit.
+  for (int i = EDID_DTM_START; i < 126 && m_sar == 0; i += 18)
+    m_sar = ValidateSAR((struct dt_dim *)(m_edid +i +EDID_DTM_OFFSET_DIMENSION), true);
 
-  // if we end up here, H/W values or final SAR are useless
-  // return 0 and use 1.0f as PR for all resolutions
-  return 0;
+  // fallback - info related to 'Basic display parameters.' is at offset 0x14-0x18.
+  // where W is 2nd byte, H 3rd.
+  if (m_sar == 0)
+    m_sar = ValidateSAR((struct dt_dim *)(m_edid +EDID_STRUCT_DISPLAY +1));
+
+  // if m_sar != 0, final SAR is usefull
+  // if it is 0, EDID info was missing or calculated
+  // SAR value wasn't sane
+  if (m_sar == 0)
+    CLog::Log(LOGDEBUG, "%s: Screen SAR - not usable info",__FUNCTION__);
+}
+
+inline double roundf_n(double dval, int n)
+{
+  char l_fmtp[32], l_buf[64];
+  char *p_str;
+
+  sprintf(l_fmtp, "%%.%df", n);
+  if (dval < 0)
+    return 0;
+
+  sprintf(l_buf, l_fmtp, dval);
+  return ((double)strtod(l_buf, &p_str));
 }
 
 bool CEGLNativeTypeIMX::ModeToResolution(std::string mode, RESOLUTION_INFO *res) const
@@ -405,6 +439,19 @@ bool CEGLNativeTypeIMX::ModeToResolution(std::string mode, RESOLUTION_INFO *res)
   std::string fromMode = StringUtils::Mid(mode, 2);
   StringUtils::Trim(fromMode);
 
+  res->dwFlags = 0;
+  res->fPixelRatio = 1.0f;
+
+  if (StringUtils::StartsWith(mode, "H:")) {
+    res->dwFlags |= D3DPRESENTFLAG_MODE3DSBS;
+    res->fPixelRatio = 2.0f;
+  } else if (StringUtils::StartsWith(mode, "T:")) {
+    res->dwFlags |= D3DPRESENTFLAG_MODE3DTB;
+    res->fPixelRatio = 0.5f;
+  } else if (StringUtils::StartsWith(mode, "F:")) {
+    return false;
+  }
+
   CRegExp split(true);
   split.RegComp("([0-9]+)x([0-9]+)([pi])-([0-9]+)");
   if (split.RegFind(fromMode) < 0)
@@ -419,16 +466,20 @@ bool CEGLNativeTypeIMX::ModeToResolution(std::string mode, RESOLUTION_INFO *res)
   res->iHeight= h;
   res->iScreenWidth = w;
   res->iScreenHeight= h;
-  res->fRefreshRate = r;
-  res->dwFlags = p[0] == 'p' ? D3DPRESENTFLAG_PROGRESSIVE : D3DPRESENTFLAG_INTERLACED;
+  if (StringUtils::isasciilowercaseletter(mode[0]))
+    res->fRefreshRate = roundf_n((double)r * 1000 / 1001, 3);
+  else
+    res->fRefreshRate = r;
+  res->dwFlags |= p[0] == 'p' ? D3DPRESENTFLAG_PROGRESSIVE : D3DPRESENTFLAG_INTERLACED;
 
   res->iScreen       = 0;
   res->bFullScreen   = true;
   res->iSubtitles    = (int)(0.965 * res->iHeight);
-
-  res->fPixelRatio   = !m_sar ? 1.0f : (float)m_sar / res->iScreenWidth * res->iScreenHeight;
-  res->strMode       = StringUtils::Format("%dx%d @ %.2f%s - Full Screen", res->iScreenWidth, res->iScreenHeight, res->fRefreshRate,
-                                           res->dwFlags & D3DPRESENTFLAG_INTERLACED ? "i" : "");
+  res->fPixelRatio  *= !m_sar ? 1.0f : (float)m_sar / res->iScreenWidth * res->iScreenHeight;
+  res->strMode       = StringUtils::Format("%4sx%4s @ %.3f%s - Full Screen (%.3f) %s", StringUtils::Format("%d", res->iScreenWidth).c_str(),
+                                           StringUtils::Format("%d", res->iScreenHeight).c_str(), res->fRefreshRate,
+                                           res->dwFlags & D3DPRESENTFLAG_INTERLACED ? "i" : " ", res->fPixelRatio,
+                                           res->dwFlags & D3DPRESENTFLAG_MODE3DSBS ? "- 3DSBS" : res->dwFlags & D3DPRESENTFLAG_MODE3DTB ? "- 3DTB" : "");
   res->strId         = mode;
 
   return res->iWidth > 0 && res->iHeight> 0;
