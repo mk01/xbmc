@@ -41,7 +41,8 @@
 #include <fstream>
 
 CEGLNativeTypeIMX::CEGLNativeTypeIMX()
-  : m_sar(0.0f)
+  : m_show(true)
+  , m_sar(0.0f)
   , m_display(NULL)
   , m_window(NULL)
 {
@@ -123,12 +124,8 @@ void CEGLNativeTypeIMX::Initialize()
   if (ioctl(fd, MXCFB_SET_CLR_KEY, &colorKey) < 0)
     CLog::Log(LOGERROR, "%s - Failed to setup color keying\n", __FUNCTION__);
 #endif
-  // Unblank the fb
-  if (ioctl(fd, FBIOBLANK, 0) < 0)
-  {
-    CLog::Log(LOGERROR, "%s - Error while unblanking fb0.\n", __FUNCTION__);
-  }
 
+  ShowWindow(false);
   close(fd);
 
   m_sar = GetMonitorSAR();
@@ -256,6 +253,7 @@ bool CEGLNativeTypeIMX::SetNativeResolution(const RESOLUTION_INFO &res)
   DestroyNativeWindow();
   DestroyNativeDisplay();
 
+  ShowWindow(false);
   SysfsUtils::SetString("/sys/class/graphics/fb0/mode", res.strId + "\n");
 
   CreateNativeDisplay();
@@ -320,13 +318,23 @@ bool CEGLNativeTypeIMX::GetPreferredResolution(RESOLUTION_INFO *res) const
 
 bool CEGLNativeTypeIMX::ShowWindow(bool show)
 {
+  if (m_show == show)
+    return true;
+
+  CLog::Log(LOGDEBUG, ": %s %s", __FUNCTION__, show ? "show" : "hide" );
+  SysfsUtils::SetInt("/sys/class/graphics/fb0/blank", show ? 0 : 1);
+
+  m_show = show;
+  if (!show)
+    return true;
+
   // Force vsync by default
   eglSwapInterval(g_Windowing.GetEGLDisplay(), 1);
   EGLint result = eglGetError();
   if(result != EGL_SUCCESS)
     CLog::Log(LOGERROR, "EGL error in %s: %x",__FUNCTION__, result);
 
-  return false;
+  return true;
 }
 
 float CEGLNativeTypeIMX::GetMonitorSAR()

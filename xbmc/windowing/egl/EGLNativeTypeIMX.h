@@ -54,6 +54,7 @@ public:
 
 protected:
   bool m_readonly;
+  bool m_show;
   float m_sar;
   bool ModeToResolution(std::string mode, RESOLUTION_INFO *res) const;
   bool FindMatchingResolution(const RESOLUTION_INFO &res, const std::vector<RESOLUTION_INFO> &resolutions);
