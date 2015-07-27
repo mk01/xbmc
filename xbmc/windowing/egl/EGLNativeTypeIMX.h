@@ -33,7 +33,7 @@ class CEGLNativeTypeIMX : public CEGLNativeType
   struct dt_dim {
     uint8_t Width;
     uint8_t Height;
-    uint8_t lobit;
+    uint8_t msbits;
   };
 
 public:

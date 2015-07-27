@@ -332,17 +332,17 @@ bool CEGLNativeTypeIMX::ShowWindow(bool show)
 
 float CEGLNativeTypeIMX::ValidateSAR(struct dt_dim *dtm, bool mb)
 {
-  int Height = mb ? dtm->Height << 4 | (dtm->lobit & 0xf0) : dtm->Height;
+  int Height = dtm->Height | (mb ? (dtm->msbits & 0x0f) << 8 : 0);
   if (Height < 1)
     return .0f;
 
-  int Width = mb ? dtm->Width << 4 | (dtm->lobit & 0x0f) : dtm->Width;
+  int Width = dtm->Width | (mb ? (dtm->msbits & 0xf0) << 4 : 0);
   float t_sar = (float) Width / Height;
 
   if (t_sar < 0.33 || t_sar > 3.00)
     t_sar = .0f;
   else
-    CLog::Log(LOGDEBUG, "%s: Screen SAR: %.3f",__FUNCTION__, t_sar);
+    CLog::Log(LOGDEBUG, "%s: Screen SAR: %.3f (from detailed: %s, %dx%d)",__FUNCTION__, t_sar, mb ? "yes" : "no", Width, Height);
 
   return t_sar;
 }
