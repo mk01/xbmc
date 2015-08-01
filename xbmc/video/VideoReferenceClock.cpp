@@ -101,8 +101,6 @@ void CVideoReferenceClock::Process()
   bool SetupSuccess = false;
   int64_t Now;
 
-  while(!m_bStop)
-  {
     //set up the vblank clock
 #if defined(HAVE_X11)
   std::string gpuvendor = g_Windowing.GetRenderVendor();
@@ -126,6 +124,11 @@ void CVideoReferenceClock::Process()
     m_pVideoSync = new CVideoSyncIMX();
 #endif
 
+  if (m_pVideoSync)
+    m_pVideoSync->AdaptPriority();
+
+  while(!m_bStop)
+  {
     if (m_pVideoSync)
     {
       SetupSuccess = m_pVideoSync->Setup(CBUpdateClock);
@@ -165,14 +168,16 @@ void CVideoReferenceClock::Process()
 
     //clean up the vblank clock
     if (m_pVideoSync)
-    {
       m_pVideoSync->Cleanup();
-      delete m_pVideoSync;
-      m_pVideoSync = NULL;
-    }
 
     if (!SetupSuccess)
       break;
+  }
+
+  if (m_pVideoSync)
+  {
+    delete m_pVideoSync;
+    m_pVideoSync = NULL;
   }
 }
 

@@ -32,6 +32,7 @@ public:
   virtual void Cleanup();
   virtual float GetFps();
   virtual void OnResetDevice();
+  virtual void AdaptPriority();
 private:
   volatile bool m_abort;
 };

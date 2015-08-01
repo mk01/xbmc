@@ -33,6 +33,7 @@ public:
   virtual void Cleanup();
   virtual float GetFps();
   virtual void RefreshChanged();
+  virtual void AdaptPriority();
 
   virtual void OnCreateDevice() {}
   virtual void OnDestroyDevice();

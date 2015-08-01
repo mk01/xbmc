@@ -50,6 +50,13 @@ void CVideoSyncD3D::RefreshChanged()
   m_displayReset = true;
 }
 
+void CVideoSyncD3D::AdaptPriority()
+{
+  //we need a high priority thread to get accurate timing
+  if (!SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_TIME_CRITICAL))
+    CLog::Log(LOGDEBUG, "CVideoSyncD3D: SetThreadPriority failed");
+}
+
 bool CVideoSyncD3D::Setup(PUPDATECLOCK func)
 {
   CLog::Log(LOGDEBUG, "CVideoSyncD3D: Setting up Direct3d");

@@ -39,11 +39,14 @@ bool CVideoSyncPi::Setup(PUPDATECLOCK func)
   return true;
 }
 
-void CVideoSyncPi::Run(volatile bool& stop)
+void CVideoSyncPi::AdaptPriority()
 {
   /* This shouldn't be very busy and timing is important so increase priority */
   CThread::GetCurrentThread()->SetPriority(CThread::GetCurrentThread()->GetPriority()+1);
+}
 
+void CVideoSyncPi::Run(volatile bool& stop)
+{
   while (!stop && !m_abort)
   {
     g_RBP.WaitVsync();

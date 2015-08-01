@@ -30,6 +30,7 @@ public:
   virtual void Cleanup() = 0;
   virtual float GetFps() = 0;
   virtual void RefreshChanged() {};
+  virtual void AdaptPriority() {};
 protected:
   PUPDATECLOCK UpdateClock;
   float m_fps;

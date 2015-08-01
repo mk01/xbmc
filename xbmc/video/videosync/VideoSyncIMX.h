@@ -33,6 +33,7 @@ public:
   virtual float GetFps();
   virtual void OnResetDevice();
   virtual void RefreshChanged();
+  virtual void AdaptPriority();
 private:
   volatile bool m_abort;
   int m_fddcic;

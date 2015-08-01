@@ -79,12 +79,16 @@ bool CVideoSyncIMX::Setup(PUPDATECLOCK func)
   return true;
 }
 
+void CVideoSyncIMX::AdaptPriority()
+{
+  /* This shouldn't be very busy and timing is important so increase priority */
+  CThread::GetCurrentThread()->SetPriority(CThread::GetCurrentThread()->GetPriority()+1);
+}
+
 void CVideoSyncIMX::Run(volatile bool& stop)
 {
   unsigned long counter;
   unsigned long last = 0;
-  /* This shouldn't be very busy and timing is important so increase priority */
-  CThread::GetCurrentThread()->SetPriority(CThread::GetCurrentThread()->GetPriority()+1);
 
   while (!stop && !m_abort)
   {
