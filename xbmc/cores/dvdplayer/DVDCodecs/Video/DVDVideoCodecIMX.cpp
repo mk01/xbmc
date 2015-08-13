@@ -1299,7 +1299,6 @@ CIMXContext::CIMXContext()
   , m_fbVirtAddr(NULL)
   , m_ipuHandle(0)
   , m_vsync(true)
-  , m_deInterlacing(false)
   , m_pageCrops(NULL)
   , m_g2dHandle(NULL)
   , m_bufferCapture(NULL)
@@ -1309,6 +1308,7 @@ CIMXContext::CIMXContext()
   // Limit queue to 2
   m_input.resize(2);
   m_beginInput = m_endInput = m_bufferedInput = 0;
+  Configure();
 }
 
 CIMXContext::~CIMXContext()
@@ -1344,8 +1344,8 @@ bool CIMXContext::AdaptScreen()
 
   CLog::Log(LOGNOTICE, "iMX : Initialize render buffers\n");
 
-  m_fbWidth = fbVar.xres;
-  m_fbHeight = fbVar.yres;
+  m_fbWidth = Align2(fbVar.xres, 8);
+  m_fbHeight = Align(fbVar.yres, 8) + 1;
 
   if (!GetFBInfo(m_deviceName, &m_fbVar))
     return false;
@@ -1354,7 +1354,7 @@ bool CIMXContext::AdaptScreen()
 
   m_fbVar.xoffset = 0;
   m_fbVar.yoffset = 0;
-  if (m_deInterlacing)
+  if (m_currentFieldFmt)
   {
     m_fbVar.nonstd = _4CC('U', 'Y', 'V', 'Y');
     m_fbVar.bits_per_pixel = 16;
@@ -1364,16 +1364,14 @@ bool CIMXContext::AdaptScreen()
     m_fbVar.nonstd = _4CC('R', 'G', 'B', '4');
     m_fbVar.bits_per_pixel = 32;
   }
-  m_fbVar.activate |= FB_ACTIVATE_FORCE;
+  m_fbVar.activate = FB_ACTIVATE_NOW;
   m_fbVar.xres = m_fbWidth;
   m_fbVar.yres = m_fbHeight;
-  // One additional line that is required for deinterlacing
-  m_fbVar.yres_virtual = (m_fbVar.yres+1) * m_fbPages;
+
+  m_fbVar.yres_virtual = m_fbVar.yres * m_fbPages;
   m_fbVar.xres_virtual = m_fbVar.xres;
 
   CSingleLock lk(m_pageSwapLock);
-
-  Blank();
 
   int err;
   struct fb_fix_screeninfo fb_fix;
@@ -1414,6 +1412,7 @@ bool CIMXContext::AdaptScreen()
 void CIMXContext::OnResetDevice()
 {
   CLog::Log(LOGINFO, "iMX : Changing screen parameters\n");
+  Blank();
   AdaptScreen();
 }
 
@@ -1435,6 +1434,8 @@ bool CIMXContext::Configure()
     CLog::Log(LOGWARNING, "iMX : Failed to open framebuffer: %s\n", m_deviceName.c_str());
     return false;
   }
+
+  Blank();
 
   if (!AdaptScreen())
     return false;
@@ -1461,7 +1462,7 @@ bool CIMXContext::Close()
   CLog::Log(LOGINFO, "iMX : Closing context\n");
 
   // Stop the ipu thread
-  StopThread();
+  StopThread(false);
 
   if (m_pageCrops)
   {
@@ -1493,6 +1494,7 @@ bool CIMXContext::Close()
     m_ipuHandle = 0;
   }
 
+  StopThread();
   m_checkConfigRequired = true;
   CLog::Log(LOGNOTICE, "iMX : Deinitialized render context\n");
 
@@ -1531,39 +1533,9 @@ bool CIMXContext::SetVSync(bool enable)
   return true;
 }
 
-void CIMXContext::SetDoubleRate(bool flag)
-{
-  if (flag)
-    m_currentFieldFmt |= IPU_DEINTERLACE_RATE_EN;
-  else
-    m_currentFieldFmt &= ~IPU_DEINTERLACE_RATE_EN;
-
-  m_currentFieldFmt &= ~IPU_DEINTERLACE_RATE_FRAME1;
-}
-
 bool CIMXContext::DoubleRate() const
 {
   return m_currentFieldFmt & IPU_DEINTERLACE_RATE_EN;
-}
-
-void CIMXContext::SetInterpolatedFrame(bool flag)
-{
-  if (flag)
-    m_currentFieldFmt &= ~IPU_DEINTERLACE_RATE_FRAME1;
-  else
-    m_currentFieldFmt |= IPU_DEINTERLACE_RATE_FRAME1;
-}
-
-void CIMXContext::SetDeInterlacing(bool flag)
-{
-  bool sav_deInt = m_deInterlacing;
-  m_deInterlacing = flag;
-  // If deinterlacing configuration changes then fb has to be reconfigured
-  if (sav_deInt != m_deInterlacing)
-  {
-    m_checkConfigRequired = true;
-    Configure();
-  }
 }
 
 void CIMXContext::SetBlitRects(const CRect &srcRect, const CRect &dstRect)
@@ -1572,57 +1544,78 @@ void CIMXContext::SetBlitRects(const CRect &srcRect, const CRect &dstRect)
   m_dstRect = dstRect;
 }
 
-bool CIMXContext::Blit(int page, CIMXBuffer *source_p, CIMXBuffer *source, bool topBottomFields)
+void CIMXContext::SetFieldData(uint8_t fieldFmt)
+{
+  if (!!fieldFmt != !!m_currentFieldFmt && !m_bStop && IsRunning())
+    m_checkConfigRequired = true;
+
+  m_currentFieldFmt = fieldFmt;
+}
+
+bool CIMXContext::Blit(int page, CIMXBuffer *source_p, CIMXBuffer *source)
 {
   if (page < 0 || page >= m_fbPages)
     return false;
 
   IPUTask ipu;
-  PrepareTask(ipu, source_p, source, topBottomFields);
+  PrepareTask(ipu, source_p, source);
   return DoTask(ipu, page);
 }
 
-bool CIMXContext::BlitAsync(CIMXBuffer *source_p, CIMXBuffer *source, bool topBottomFields, CRect *dest)
+bool CIMXContext::BlitAsync(CIMXBuffer *source_p, CIMXBuffer *source, CRect *dest)
 {
   IPUTask ipu;
-  PrepareTask(ipu, source_p, source, topBottomFields, dest);
+
+  PrepareTask(ipu, source_p, source, dest);
   return PushTask(ipu);
 }
 
 bool CIMXContext::PushCaptureTask(CIMXBuffer *source, CRect *dest)
 {
   IPUTask ipu;
+
   m_CaptureDone = false;
-  PrepareTask(ipu, NULL, source, false, dest);
+  PrepareTask(ipu, NULL, source, dest);
   return PushTask(ipu);
 }
 
 bool CIMXContext::ShowPage(int page)
 {
-  int ret;
-
   if (!m_fbHandle) return false;
   if (page < 0 || page >= m_fbPages) return false;
+
+  static uint8_t lt;
 
   // Protect page swapping from screen capturing that does read the current
   // front buffer. This is actually not done very frequently so the lock
   // does not hurt.
   CSingleLock lk(m_pageSwapLock);
 
-  m_fbCurrentPage = page;
   m_fbVar.activate = FB_ACTIVATE_VBL;
-  m_fbVar.yoffset = (m_fbVar.yres+1)*page;
-  if ((ret = ioctl(m_fbHandle, FBIOPAN_DISPLAY, &m_fbVar)) < 0)
+
+  int off = 0;
+  if (DoubleRate() && !(lt & IPU_DEINTERLACE_RATE_FRAME1))
+    off = 1;
+
+  lt = m_currentFieldFmt;
+  m_fbVar.yoffset = (m_fbVar.yres + off + 1) * page;
+#if 0
+  printf("fm: %d, --xx: %0x, xx--: %0x, off: %d/%d\n", m_currentFieldFmt, m_currentFieldFmt & 3, m_currentFieldFmt & 0xc0, off, m_fbVar.yoffset);
+#endif
+  int ret = ioctl(m_fbHandle, FBIOPAN_DISPLAY, &m_fbVar);
+  if (ret < 0)
     CLog::Log(LOGWARNING, "Panning failed: %s\n", strerror(errno));
 
   // Wait for sync
-  if (m_vsync)
+  if (ret >= 0 && m_vsync)
   {
-    if (ioctl(m_fbHandle, FBIO_WAITFORVSYNC, 0) < 0)
+    ret = ioctl(m_fbHandle, FBIO_WAITFORVSYNC, 0);
+    if (ret < 0)
       CLog::Log(LOGWARNING, "Vsync failed: %s\n", strerror(errno));
   }
 
-  return true;
+  m_fbCurrentPage = page;
+  return ret >= 0;
 }
 
 void CIMXContext::Clear(int page)
@@ -1789,7 +1782,7 @@ void CIMXContext::WaitCapture()
 }
 
 void CIMXContext::PrepareTask(IPUTask &ipu, CIMXBuffer *source_p, CIMXBuffer *source,
-                              bool topBottomFields, CRect *dest)
+                              CRect *dest)
 {
   Configure();
   // Fill with zeros
@@ -1872,7 +1865,7 @@ void CIMXContext::PrepareTask(IPUTask &ipu, CIMXBuffer *source_p, CIMXBuffer *so
   else
   {
   // Setup deinterlacing if enabled
-  if (m_deInterlacing)
+  if (m_currentFieldFmt)
   {
     ipu.task.input.deinterlace.enable = 1;
     /*
@@ -1886,11 +1879,6 @@ void CIMXContext::PrepareTask(IPUTask &ipu, CIMXBuffer *source_p, CIMXBuffer *so
     */
       ipu.task.input.deinterlace.motion = HIGH_MOTION;
     ipu.task.input.deinterlace.field_fmt = m_currentFieldFmt;
-
-    if (topBottomFields)
-      ipu.task.input.deinterlace.field_fmt |= IPU_DEINTERLACE_FIELD_TOP;
-    else
-      ipu.task.input.deinterlace.field_fmt |= IPU_DEINTERLACE_FIELD_BOTTOM;
   }
   }
 }
@@ -2123,7 +2111,7 @@ void CIMXContext::Process()
 
       useBackBuffer = m_vsync;
       IPUTask &task = m_input[m_beginInput];
-      backBuffer = useBackBuffer?1-m_fbCurrentPage:m_fbCurrentPage;
+      backBuffer = useBackBuffer?1-GetCurrentPage():GetCurrentPage();
 
       // Hack to detect we deal with capture buffer
       if (task.task.output.width != 0)

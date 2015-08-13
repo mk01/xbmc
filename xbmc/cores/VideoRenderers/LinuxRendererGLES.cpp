@@ -637,46 +637,31 @@ void CLinuxRendererGLES::RenderUpdateVideo(bool clear, DWORD flags, DWORD alpha)
       //CLog::Log(LOGDEBUG, "BLIT RECTS: source x1 %f x2 %f y1 %f y2 %f dest x1 %f x2 %f y1 %f y2 %f", srcRect.x1, srcRect.x2, srcRect.y1, srcRect.y2, dstRect.x1, dstRect.x2, dstRect.y1, dstRect.y2);
       g_IMXContext.SetBlitRects(srcRect, dstRect);
 
-      bool topFieldFirst = true;
-
+      uint8_t fieldFmt = 0;
       // Deinterlacing requested
-      if (flags & RENDER_FLAG_FIELDMASK)
+      if (flags & RENDER_FLAG_BOTH)
       {
         if ((buffer->GetFieldType() == VPU_FIELD_BOTTOM)
         ||  (buffer->GetFieldType() == VPU_FIELD_BT) )
-          topFieldFirst = false;
-
-        if (flags & RENDER_FLAG_FIELD0)
-        {
-          // Double rate first frame
-          g_IMXContext.SetDeInterlacing(true);
-          g_IMXContext.SetDoubleRate(true);
-          g_IMXContext.SetInterpolatedFrame(true);
-        }
-        else if (flags & RENDER_FLAG_FIELD1)
-        {
-          // Double rate second frame
-          g_IMXContext.SetDeInterlacing(true);
-          g_IMXContext.SetDoubleRate(true);
-          g_IMXContext.SetInterpolatedFrame(false);
-        }
+          fieldFmt = 1;
         else
+          fieldFmt = 2;
+
+        if (flags & RENDER_FLAG_FIELDS)
         {
-          // Fast motion
-          g_IMXContext.SetDeInterlacing(true);
-          g_IMXContext.SetDoubleRate(false);
+          fieldFmt |= IPU_DEINTERLACE_RATE_EN;
+          if (flags & RENDER_FLAG_FIELD1)
+            fieldFmt |= IPU_DEINTERLACE_RATE_FRAME1;
         }
       }
-      // Progressive
-      else
-        g_IMXContext.SetDeInterlacing(false);
 
-      g_IMXContext.BlitAsync(NULL, buffer, topFieldFirst);
+      g_IMXContext.SetFieldData(fieldFmt);
+      g_IMXContext.BlitAsync(NULL, buffer);
     }
 
 #if 0
     unsigned long long current2 = XbmcThreads::SystemClockMillis();
-    printf("r: %d  %d\n", m_iYV12RenderBuffer, (int)(current2-current));
+    printf("r: %d  %d fm: %d, --xx: %0x, xx--: %0x\n", m_iYV12RenderBuffer, (int)(current2-current), fieldFmt, fieldFmt & 3, fieldFmt & 0xc0);
 #endif
   }
 #endif
