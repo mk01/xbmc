@@ -312,7 +312,6 @@ bool CEGLNativeTypeIMX::SetNativeResolution(const RESOLUTION_INFO &res)
   SysfsUtils::SetString("/sys/class/graphics/fb0/mode", res.strId + "\n");
 
   CreateNativeDisplay();
-  CreateNativeWindow();
 
   return true;
 #else
@@ -389,12 +388,6 @@ bool CEGLNativeTypeIMX::ShowWindow(bool show)
     return true;
 
   CLog::Log(LOGDEBUG, ": %s %s", __FUNCTION__, show?"show":"hide");
-  int fd;
-  if (m_show && (fd = open("/dev/fb0", O_RDWR)))
-  {
-    ioctl(fd, FBIO_WAITFORVSYNC, 0);
-    close(fd);
-  }
   SysfsUtils::SetInt("/sys/class/graphics/fb0/blank", show ? 0 : 1 );
 
   m_show = show;
