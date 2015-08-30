@@ -20,6 +20,7 @@
 
 #include "PeripheralVideo.h"
 #include "utils/log.h"
+#include "utils/Screen.h"
 #include "guilib/GraphicContext.h"
 #include "dialogs/GUIDialogKaiToast.h"
 #include "guilib/LocalizeStrings.h"
@@ -69,9 +70,10 @@ bool CPeripheralVideo::InitialiseFeature(const PeripheralFeature feature)
 
 void CPeripheralVideo::OnTimeout()
 {
-  switch (m_cableState) {
+  switch (m_cableState)
+  {
     case CABLE_CONNECTED:
-      g_application.SetCecStandby(false);
+      g_screen.SetOn();
 
       if (CSettings::GetInstance().GetBool("videoscreen.updateresolutions"))
       {
@@ -81,7 +83,7 @@ void CPeripheralVideo::OnTimeout()
 
       break;
     case CABLE_DISCONNECTED:
-      g_application.SetCecStandby(true);
+      g_screen.SetOff();
 
     default:
       ;

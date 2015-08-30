@@ -225,8 +225,11 @@
 
 #include "cores/FFmpeg.h"
 #include "utils/CharsetConverter.h"
+
 #include "pictures/GUIWindowSlideShow.h"
 #include "windows/GUIWindowLoginScreen.h"
+
+#include "utils/Screen.h"
 
 using namespace ADDON;
 using namespace XFILE;
@@ -285,7 +288,6 @@ CApplication::CApplication(void)
   m_ePlayState = PLAY_STATE_NONE;
   m_skinReverting = false;
   m_loggingIn = false;
-  m_cecStandby = false;
 
 #ifdef HAS_GLX
   XInitThreads();
@@ -347,10 +349,7 @@ bool CApplication::OnEvent(XBMC_Event& newEvent)
   {
     case XBMC_QUIT:
       if (!g_application.m_bStop)
-      {
         CApplicationMessenger::GetInstance().PostMsg(TMSG_QUIT);
-        g_application.SetCecStandby(false);
-      }
       break;
     case XBMC_VIDEORESIZE:
       if (g_windowManager.Initialized() &&
@@ -1920,20 +1919,6 @@ float CApplication::GetDimScreenSaverLevel() const
   return 100.0f;
 }
 
-void CApplication::SetCecStandby(bool status)
-{
-  if (status == m_cecStandby)
-    return;
-
-  CLog::Log(LOGDEBUG, "%s is %x, se %d, sa %d", __FUNCTION__, (int)status, m_screenSaver ? 1:0, m_bScreenSave);
-
-  m_cecStandby = status;
-  if (g_application.m_bStop)
-    return;
-
-  SetRenderGUI(!status);
-}
-
 void CApplication::Render()
 {
   // do not render if we are stopped or in background
@@ -2066,7 +2051,7 @@ void CApplication::Render()
   else
     flip = true;
 
-  flip &= !m_cecStandby;
+  flip &= !g_screen.GetScreenState();
 
   //fps limiter, make sure each frame lasts at least singleFrameTime milliseconds
   if (limitFrames || !(flip || m_bPresentFrame))
@@ -4055,6 +4040,7 @@ bool CApplication::WakeUpScreenSaverAndDPMS(bool bPowerOffKeyPressed /* = false 
     CVariant data(CVariant::VariantTypeObject);
     data["shuttingdown"] = bPowerOffKeyPressed;
     CAnnouncementManager::GetInstance().Announce(GUI, "xbmc", "OnScreensaverDeactivated", data);
+
 #ifdef TARGET_ANDROID
     // Screensaver deactivated -> acquire wake lock
     CXBMCApp::EnableWakeLock(true);
@@ -5373,7 +5359,7 @@ bool CApplication::ScreenSaverDisablesAutoScrolling()
 {
   // This 'if' clause is completely unnecessary, but by not touching the 'return'
   // below this patch becomes more easily maintainable.
-  if (GetCecStandby())
+  if (g_screen.GetScreenState())
     return true;
 
   return IsInScreenSaver() && m_screenSaver &&

@@ -396,9 +396,6 @@ public:
 
   bool ScreenSaverDisablesAutoScrolling();
 
-  void SetCecStandby(bool status);
-  bool GetCecStandby() { return m_cecStandby; }
-
 protected:
   virtual bool OnSettingsSaving() const override;
 
@@ -423,7 +420,6 @@ protected:
   std::string m_skinReloadSettingIgnore;
 
   bool m_loggingIn;
-  bool m_cecStandby;
 
 #if defined(TARGET_DARWIN_IOS)
   friend class CWinEventsIOS;

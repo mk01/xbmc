@@ -34,6 +34,7 @@
 #include "settings/AdvancedSettings.h"
 #include "utils/log.h"
 #include "utils/Variant.h"
+#include "utils/Screen.h"
 
 #include <libcec/cec.h>
 
@@ -170,15 +171,14 @@ void CPeripheralCecAdapter::Announce(AnnouncementFlag flag, const char *sender, 
     {
       ActivateSource();
     }
-    // if we disable render on TV power on/off events, we have to enable it again screensaver off
-    // to get screen updates for VNC sessions
-    g_application.SetCecStandby(false);
   }
   else if (flag == GUI && !strcmp(sender, "xbmc") && !strcmp(message, "OnScreensaverActivated") && m_bIsReady)
   {
     // Don't put devices to standby if application is currently playing
     if ((!g_application.m_pPlayer->IsPlaying() && !g_application.m_pPlayer->IsPaused()) && m_configuration.bPowerOffScreensaver == 1)
     {
+      if (!(CEC_POWER_STATUS_ON == m_cecAdapter->GetDevicePowerStatus(CECDEVICE_TV) && m_cecAdapter->IsLibCECActiveSource()))
+        g_screen.SetOff();
       // only power off when we're the active source
       if (m_cecAdapter->IsLibCECActiveSource())
         StandbyDevices();
@@ -637,7 +637,7 @@ int CPeripheralCecAdapter::CecCommand(void *cbParam, const cec_command command)
           g_application.ExecuteXBMCAction("Shutdown");
       }
       if (command.initiator == CECDEVICE_TV)
-        g_application.SetCecStandby(true);
+        g_screen.SetOff();
       break;
     case CEC_OPCODE_SET_MENU_LANGUAGE:
       if (adapter->m_configuration.bUseTVMenuLanguage == 1 && command.initiator == CECDEVICE_TV && command.parameters.size == 3)
@@ -1192,7 +1192,7 @@ void CPeripheralCecAdapter::CecSourceActivated(void *cbParam, const CEC::cec_log
   }
 
   if (activated != 1)
-    g_application.SetCecStandby(true);
+    g_screen.SetOff();
 }
 
 int CPeripheralCecAdapter::CecLogMessage(void *cbParam, const cec_log_message message)
