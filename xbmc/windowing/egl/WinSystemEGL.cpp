@@ -33,6 +33,7 @@
 #include "cores/VideoRenderers/RenderManager.h"
 #include "guilib/DispResource.h"
 #include "threads/SingleLock.h"
+#include "cores/AudioEngine/AEFactory.h"
 #ifdef HAS_IMXVPU
 // This has to go into another header file
 #include "cores/dvdplayer/DVDCodecs/Video/DVDVideoCodecIMX.h"
@@ -292,6 +293,8 @@ bool CWinSystemEGL::CreateNewWindow(const std::string& name, bool fullScreen, RE
     return true;
   }
 
+  CAEFactory::Enter();
+
   m_bFullScreen   = fullScreen;
   // Destroy any existing window
   if (m_surface != EGL_NO_SURFACE)
@@ -302,6 +305,7 @@ bool CWinSystemEGL::CreateNewWindow(const std::string& name, bool fullScreen, RE
   if (!CreateWindow(res))
   {
     CLog::Log(LOGERROR, "%s: Could not create new window",__FUNCTION__);
+    CAEFactory::Leave();
     return false;
   }
 
@@ -312,6 +316,7 @@ bool CWinSystemEGL::CreateNewWindow(const std::string& name, bool fullScreen, RE
 
   Show();
 
+  CAEFactory::Leave();
   return true;
 }
 

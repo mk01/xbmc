@@ -262,5 +262,8 @@ public:
    * @return The current sink format.
    */
   virtual AEAudioFormat GetCurrentSinkFormat() = 0;
+
+  virtual void Enter() {}
+  virtual void Leave() {}
 };
 
