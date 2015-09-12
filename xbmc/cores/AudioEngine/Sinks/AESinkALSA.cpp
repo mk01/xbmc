@@ -40,6 +40,7 @@
 #include "utils/AMLUtils.h"
 #endif
 
+#include "windowing/egl/EGLEdid.h"
 
 #define AE_MIN_PERIODSIZE 256
 #define ALSA_CHMAP_KERNEL_BLACKLIST
@@ -1573,39 +1574,46 @@ bool CAESinkALSA::GetELD(snd_hctl_t *hctl, int device, CAEDeviceInfo& info, bool
   snd_ctl_elem_id_set_name     (id, "ELD" );
   snd_ctl_elem_id_set_device   (id, device);
   elem = snd_hctl_find_elem(hctl, id);
-  if (!elem)
-    return false;
+  bool bContinue = elem;
 
-  snd_ctl_elem_info_alloca(&einfo);
-  memset(einfo, 0, snd_ctl_elem_info_sizeof());
+  if (bContinue)
+  {
+    snd_ctl_elem_info_alloca(&einfo);
+    memset(einfo, 0, snd_ctl_elem_info_sizeof());
+    bContinue = snd_hctl_elem_info(elem, einfo) >= 0;
+  }
 
-  if (snd_hctl_elem_info(elem, einfo) < 0)
-    return false;
+  if (bContinue)
+    bContinue = snd_ctl_elem_info_is_readable(einfo);
 
-  if (!snd_ctl_elem_info_is_readable(einfo))
-    return false;
+  if (bContinue)
+    bContinue = snd_ctl_elem_info_get_type(einfo) == SND_CTL_ELEM_TYPE_BYTES;
 
-  if (snd_ctl_elem_info_get_type(einfo) != SND_CTL_ELEM_TYPE_BYTES)
-    return false;
+  if (bContinue)
+  {
+    snd_ctl_elem_value_alloca(&control);
+    memset(control, 0, snd_ctl_elem_value_sizeof());
+    bContinue = snd_hctl_elem_read(elem, control) >= 0;
+  }
 
-  snd_ctl_elem_value_alloca(&control);
-  memset(control, 0, snd_ctl_elem_value_sizeof());
+  int dataLength = 0;
+  uint8_t* source = (uint8_t*)g_EGLEdid.GetRawEdid();
+  if (bContinue)
+    dataLength = snd_ctl_elem_info_get_count(einfo);
 
-  if (snd_hctl_elem_read(elem, control) < 0)
-    return false;
+  if (!dataLength && source)
+    dataLength = EDID_MAXSIZE - EDID_EXTENSION_BLOCK_START;
+  else if (dataLength)
+    source = (uint8_t*)snd_ctl_elem_value_get_bytes(control);
 
-  int dataLength = snd_ctl_elem_info_get_count(einfo);
   /* if there is no ELD data, then its a bad HDMI device, either nothing attached OR an invalid nVidia HDMI device
    * OR the driver doesn't properly support ELD (notably ATI/AMD, 2012-05) */
-  if (!dataLength)
+  if (!source)
     badHDMI = true;
   else
-    CAEELDParser::Parse(
-      (const uint8_t*)snd_ctl_elem_value_get_bytes(control),
-      dataLength,
-      info
-    );
+    CAEELDParser::Parse((const uint8_t*)source, dataLength, info);
 
+  g_EGLEdid.Unlock();
   info.m_deviceType = AE_DEVTYPE_HDMI;
   return true;
 }
