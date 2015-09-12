@@ -44,6 +44,8 @@
 #include "peripherals/Peripherals.h"
 #include "peripherals/bus/linux/PeripheralBusPLATFORMLibUdev.h"
 
+#include "EGLEdid.h"
+
 using namespace PERIPHERALS;
 
 CEGLNativeTypeIMX::CEGLNativeTypeIMX()
@@ -349,7 +351,7 @@ bool CEGLNativeTypeIMX::FindMatchingResolution(const RESOLUTION_INFO &res, const
 bool CEGLNativeTypeIMX::ProbeResolutions(std::vector<RESOLUTION_INFO> &resolutions)
 {
 #ifdef HAS_IMXVPU
-  CalcSAR();
+  g_EGLEdid.CalcSAR();
 
   if (m_readonly)
     return false;
@@ -410,7 +412,7 @@ bool CEGLNativeTypeIMX::ShowWindow(bool show)
 }
 
 #ifdef HAS_IMXVPU
-void CEGLNativeTypeIMX::ReadEdidData()
+bool CEGLEdid::ReadEdidData()
 {
   FILE *f_edid;
   char *str = NULL;
@@ -425,7 +427,7 @@ void CEGLNativeTypeIMX::ReadEdidData()
     f_edid = fopen("/sys/devices/soc0/soc.1/20e0000.hdmi_video/edid", "r");
 
   if(!f_edid)
-    return;
+    return false;
 
   // first check if EDID is in binary format by reading 512bytes, compare 1st 8bytes
   // against EDID 1.4 identificator [0x0,0xff,0xff,0xff,0xff,0xff,0xff,0x0]
@@ -468,6 +470,8 @@ void CEGLNativeTypeIMX::ReadEdidData()
     str = NULL;
   }
   fclose(f_edid);
+
+  return true;
 }
 
 bool CEGLNativeTypeIMX::ModeToResolution(std::string mode, RESOLUTION_INFO *res) const
@@ -521,7 +525,7 @@ bool CEGLNativeTypeIMX::ModeToResolution(std::string mode, RESOLUTION_INFO *res)
   res->bFullScreen   = true;
   res->iSubtitles    = (int)(0.965 * res->iHeight);
 
-  res->fPixelRatio  *= (float)GetSAR() / res->iScreenWidth * res->iScreenHeight;
+  res->fPixelRatio  *= (float)g_EGLEdid.GetSAR() / res->iScreenWidth * res->iScreenHeight;
   res->strMode       = StringUtils::Format("%4sx%4s @ %.3f%s - Full Screen (%.3f) %s", StringUtils::Format("%d", res->iScreenWidth).c_str(),
                                            StringUtils::Format("%d", res->iScreenHeight).c_str(), res->fRefreshRate,
                                            res->dwFlags & D3DPRESENTFLAG_INTERLACED ? "i" : " ", res->fPixelRatio,
