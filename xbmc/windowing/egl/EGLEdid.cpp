@@ -22,6 +22,8 @@
 #include "EGLEdid.h"
 #include "utils/log.h"
 
+CEGLEdid g_EGLEdid;
+
 CEGLEdid::CEGLEdid()
   : m_fSar(0.0f)
 {

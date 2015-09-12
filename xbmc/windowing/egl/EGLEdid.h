@@ -25,6 +25,7 @@
 #define EDID_STRUCT_DISPLAY             0x14
 #define EDID_DTM_START                  0x36
 #define EDID_DTM_OFFSET_DIMENSION       0x0c
+#define EDID_EXTENSION_BLOCK_START      0x7e
 #define EDID_MAXSIZE                    512
 
 class CEGLEdid
@@ -39,7 +40,8 @@ public:
   CEGLEdid();
   virtual ~CEGLEdid();
 
-  virtual void ReadEdidData() = 0;
+  bool    ReadEdidData();
+  const uint8_t *GetRawEdid() { return ReadEdidData() ? m_edid : NULL; }
 
   float   GetSAR() const { return m_fSar; }
   void    CalcSAR();
@@ -50,3 +52,5 @@ protected:
   float        m_fSar;
   uint8_t      m_edid[EDID_MAXSIZE];
 };
+
+extern CEGLEdid g_EGLEdid;
