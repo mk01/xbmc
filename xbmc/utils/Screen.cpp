@@ -56,12 +56,6 @@ void CScreen::Announce(AnnouncementFlag flag, const char *sender, const char *me
     g_screen.SetOn();
   else if (flag == GUI && !strcmp(sender, "xbmc") && !strcmp(message, "OnScreensaverActivated") && CSettings::GetInstance().GetString("screensaver.mode") == "screensaver.xbmc.builtin.black")
     g_screen.SetOff();
-#ifdef HAS_IMXVPU
-  else if (flag == Player && !strcmp(sender, "xbmc") && !strcmp(message, "OnPlay"))
-    g_VideoReferenceClock.Start();
-  else if (flag == Player && !strcmp(sender, "xbmc") && !strcmp(message, "OnPause"))
-    g_VideoReferenceClock.Stop();
-#endif
 }
 
 void CScreen::ScreenPowerOff(bool doBlank)
