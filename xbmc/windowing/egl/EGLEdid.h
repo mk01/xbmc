@@ -20,8 +20,6 @@
  *
  */
 
-#include "threads/CriticalSection.h"
-#include "threads/SingleLock.h"
 #include <string>
 #include "guilib/GraphicContext.h"
 
@@ -44,23 +42,16 @@ public:
   virtual ~CEGLEdid();
 
   bool    ReadEdidData();
-  const uint8_t *GetRawEdid() { Lock(); if (m_edidEmpty) CalcSAR(); return m_edidEmpty ? NULL : &m_edid[0]; }
+  const uint8_t *GetRawEdid() { return ReadEdidData() ? m_edid : NULL; }
 
-  float   GetSAR() const { CSingleLock lk(m_lock); return m_fSar; }
+  float   GetSAR() const { return m_fSar; }
   void    CalcSAR();
-
-  void Lock() { m_lock.lock(); }
-  void Unlock() { m_lock.unlock(); }
-
-  uint8_t      m_edid[EDID_MAXSIZE];
 
 protected:
   float   ValidateSAR(struct dt_dim *dtm, bool mb = false);
 
   float        m_fSar;
-  bool         m_edidEmpty;
-
-  CCriticalSection m_lock;
+  uint8_t      m_edid[EDID_MAXSIZE];
 };
 
 extern CEGLEdid g_EGLEdid;

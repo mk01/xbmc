@@ -28,7 +28,6 @@ CEGLEdid g_EGLEdid;
 
 CEGLEdid::CEGLEdid()
   : m_fSar(0.0f)
-  , m_edidEmpty(true)
 {
 }
 
@@ -55,10 +54,7 @@ float CEGLEdid::ValidateSAR(struct dt_dim *dtm, bool mb)
 
 void CEGLEdid::CalcSAR()
 {
-  CSingleLock lk(m_lock);
-
   m_fSar = .0f;
-  m_edidEmpty = true;
   ReadEdidData();
 
   // enumerate through (max four) detailed timing info blocks
@@ -86,6 +82,4 @@ void CEGLEdid::CalcSAR()
     else
       m_fSar = .0f;
   }
-
-  m_edidEmpty = false;
 }
