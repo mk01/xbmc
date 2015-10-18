@@ -1396,7 +1396,7 @@ bool CIMXContext::AdaptScreen()
   m_fbVar.xoffset = 0;
   m_fbVar.yoffset = 0;
 
-  if (0 && m_currentFieldFmt)
+  if (m_currentFieldFmt)
   {
     m_fbVar.nonstd = _4CC('U', 'Y', 'V', 'Y');
     m_fbVar.bits_per_pixel = 16;
@@ -1409,7 +1409,7 @@ bool CIMXContext::AdaptScreen()
   m_fbVar.activate = FB_ACTIVATE_NOW;
   m_fbVar.xres = m_fbWidth;
   m_fbVar.yres = m_fbHeight;
-  m_fbVar.yres_virtual = m_fbVar.yres * m_fbPages;
+  m_fbVar.yres_virtual = (m_fbVar.yres + 1) * m_fbPages;
   m_fbVar.xres_virtual = m_fbVar.xres;
 
   Blank();
@@ -1558,7 +1558,7 @@ void CIMXContext::SetFieldData(uint8_t fieldFmt)
   if (!!fieldFmt == deint)
     return;
 
-  CLog::Log(LOGDEBUG, "iMX : Deinterlacing parameters changed (%s)\n", !!fieldFmt ? "active" : "not active");
+  CLog::Log(LOGDEBUG, "iMX : Deinterlacing parameters changed (%s) %s\n", !!fieldFmt ? "active" : "not active", IsDoubleRate() ? "DR" : "");
 
   CSingleLock lk(m_pageSwapLock);
   m_bFbIsConfigured = false;
@@ -1608,7 +1608,7 @@ bool CIMXContext::ShowPage(int page)
 
   m_fbVar.activate = FB_ACTIVATE_VBL;
 
-  m_fbVar.yoffset = (m_fbVar.yres + 0) * page;
+  m_fbVar.yoffset = (m_fbVar.yres + 1) * page;
   if (ioctl(m_fbHandle, FBIOPAN_DISPLAY, &m_fbVar) < 0)
   {
     CLog::Log(LOGWARNING, "Panning failed: %s\n", strerror(errno));
@@ -2005,7 +2005,7 @@ bool CIMXContext::DoTask(IPUTask &ipu, int targetPage)
     }
 
     // Duplicate 2nd scandline if double rate is active
-    if (ipu.task.input.deinterlace.field_fmt & IPU_DEINTERLACE_RATE_EN)
+    if (IsDoubleRate())
     {
         uint8_t *pageAddr = m_fbVirtAddr + targetPage*m_fbPageSize;
         memcpy(pageAddr, pageAddr+m_fbLineLength, m_fbLineLength);
