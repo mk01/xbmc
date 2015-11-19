@@ -27,13 +27,14 @@
 #include "DVDVideoCodec.h"
 #include "DVDStreamInfo.h"
 #include "guilib/DispResource.h"
+#include "system_gl.h"
 
 #include <vector>
 #include <linux/ipu.h>
 #include <linux/mxcfb.h>
 #include <imx-mm/vpu/vpu_wrapper.h>
 #include <g2d.h>
-
+#include <map>
 
 // The decoding format of the VPU buffer. Comment this to decode
 // as NV12. The VPU works faster with NV12 in combination with
@@ -144,6 +145,8 @@ public:
 
   void OnResetDevice();
 
+  void RendererAllowed(bool yes);
+
 private:
   struct IPUTask
   {
@@ -227,6 +230,7 @@ private:
 extern CIMXContext g_IMXContext;
 /*<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<*/
 
+typedef std::map<GLvoid*, GLuint> ptrToTexMap_t;
 
 class CDecMemInfo
 {
@@ -314,6 +318,8 @@ public:
   virtual void SetDropState(bool bDrop);
   virtual const char* GetName() { return (const char*)m_pFormatName; }
   virtual unsigned GetAllowedReferences();
+
+  static ptrToTexMap_t ptrToTexMap;
 
   static void Enter();
   static void Leave();

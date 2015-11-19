@@ -48,6 +48,7 @@
 
 // Global instance
 CIMXContext g_IMXContext;
+ptrToTexMap_t CDVDVideoCodecIMX::ptrToTexMap;
 
 // Number of fb pages used for paning
 const int CIMXContext::m_fbPages = 2;
@@ -2078,6 +2079,15 @@ bool CIMXContext::DoTask(IPUTask &ipu, int targetPage)
 #endif
 
   return true;
+}
+
+void CIMXContext::RendererAllowed(bool yes)
+{
+  CLog::Log(LOGNOTICE, "iMX : changing to %s", yes ? "enabled" : "disabled");
+  if (yes)
+    TaskRestart();
+  else
+    StopThread(true);
 }
 
 void CIMXContext::OnStartup()
