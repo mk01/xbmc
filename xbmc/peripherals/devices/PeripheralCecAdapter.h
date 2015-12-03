@@ -142,6 +142,8 @@ namespace PERIPHERALS
     void SetAudioSystemConnected(bool bSetTo);
     void SetMenuLanguage(const char *strLanguage);
 
+    static void CecEventPostAction(void *cbParam, const uint8_t activated, bool wait);
+
     // callbacks from libCEC
     static int CecLogMessage(void *cbParam, const CEC::cec_log_message message);
     static int CecCommand(void *cbParam, const CEC::cec_command command);
