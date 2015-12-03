@@ -1630,6 +1630,11 @@ const CFileItemList& CGUIMediaWindow::CurrentDirectory() const
 
 bool CGUIMediaWindow::WaitForNetwork() const
 {
+  // temporary hack to revert behaviour prior
+  // to IsAvailable() remove to proceed with testing
+  // (with no network configured)
+  return true;
+
   if (g_application.getNetwork().IsConnected())
     return true;
 
