@@ -12,7 +12,7 @@ SOURCE=$(LIBNAME)-$(VERSION)
 ARCHIVE=$(SOURCE).tar.bz2
 # configuration settings
 CONFIGURE=cp -f $(CONFIG_SUB) $(CONFIG_GUESS) .; \
-          ./configure --prefix=$(PREFIX) --without-libssh2 \
+          ./configure --prefix=$(PREFIX) --without-libssh2 --enable-ipv6 \
 
 LIBDYLIB=$(PLATFORM)/lib/.libs/lib$(LIBNAME).a
 
