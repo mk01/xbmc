@@ -530,6 +530,9 @@ std::vector<std::string> CNetworkLinux::GetNameServers(void)
 #else
    int res = res_init();
 
+  for(int i = 0; i < _res._u._ext.nscount6 && !res; i++)
+    result.push_back(CNetwork::GetIpStr((struct sockaddr *)_res._u._ext.nsaddrs[i]));
+
    for (int i = 0; i < _res.nscount && !res; i ++)
    {
       std::string strIp = CNetwork::GetIpStr((struct sockaddr *)&_res.nsaddr_list[i]);
