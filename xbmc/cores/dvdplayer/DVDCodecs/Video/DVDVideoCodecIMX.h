@@ -342,6 +342,8 @@ private:
 
   std::string                    m_deviceName;
   int                            m_speed;
+
+  int                            m_ioctlPan;
 };
 
 
