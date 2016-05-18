@@ -38,9 +38,6 @@ static const std::string DeviceLocationPrefix = "android/inputdevice/";
 CPeripheralBusAndroid::CPeripheralBusAndroid(CPeripherals *manager) :
     CPeripheralBus("PeripBusAndroid", manager, PERIPHERAL_BUS_ANDROID)
 {
-  // we don't need polling as we get notified through the IInputDeviceCallbacks interface
-  m_bNeedsPolling = false;
-
   // register for input device callbacks
   CXBMCApp::RegisterInputDeviceCallbacks(this);
 
@@ -283,7 +280,7 @@ bool CPeripheralBusAndroid::OnInputDeviceEvent(const AInputEvent* event)
 
 bool CPeripheralBusAndroid::PerformDeviceScan(PeripheralScanResults &results)
 {
-  CSingleLock lock(m_critSectionResults);
+  m_bNeedsPolling = false;
   results = m_scanResults;
 
   return true;
